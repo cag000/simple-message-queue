@@ -34,7 +34,7 @@ Simple implementation message queue with go and presistence data in redis runnin
     -user string
             username [./app -user=$user]
     ```
-3. Useage
+3. Useage<br>
     Before use this app please define ```cfg.env``` config for your system
     - Start up server queue<br>
     ```./app -config=cfg.env -auth=true -user=$user -pwd=$pwd -server_queue=true```
@@ -52,7 +52,7 @@ Simple implementation message queue with go and presistence data in redis runnin
     - Consumer<br>
     ```./app -config=cfg.env -auth=true -user=$user -pwd=$user -consumer=true -queue=$queue_name```
 
-4. Bugs
-    THe useage of CPU high, because not properly implement the routine in go, still on research for better improvement :D
+4. Bugs<br>
+    The useage of CPU high, because not properly implement the routine in go, still on research for better improvement :D
 
-Feel free to modify and use it or open request
+Feel free to modify and use it, or open new request
