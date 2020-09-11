@@ -9,7 +9,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
-
+	"runtime"
 	"strings"
 
 	"github.com/cag000/simple-message-queue/client"
@@ -74,6 +74,7 @@ func init() {
 }
 
 func main() {
+	runtime.GOMAXPROCS(2)
 	logrus.SetFormatter(customFormatterG)
 
 	data := new(client.Dummy)
@@ -84,6 +85,7 @@ func main() {
 		if username == cfg.UserApp.Username && password == cfg.UserApp.Password {
 			logrus.Infof("Success Login User [%s]", username)
 			if serverLive {
+				worker := make(chan bool)
 				logrus.Infof("Server start at %s", cfg.Mqueue.Address)
 				serv := &server.Queue{
 					Address: fmt.Sprintf("%s", cfg.Mqueue.Address),
@@ -92,33 +94,36 @@ func main() {
 				if err != nil {
 					logrus.Error(err)
 				}
-
-				// exit := make(chan bool)
 				for {
-					if conn, err := serv.Listener.Accept(); err == nil {
-						redisDb.Connection(cfg)
-						go func() {
-							defer redisDb.Conn.Close()
-							buf := bufio.NewReader(conn)
-							for {
-								msg, err := buf.ReadString('\n')
-								if err == nil {
-									if !strings.Contains(msg, "Delete=") {
-										q := msg[:strings.IndexByte(msg, '=')]
-										dMsg := strings.Replace(msg, fmt.Sprintf("%s=", q), "", 1)
-										redisDb.PushDB(ctx, q, dMsg)
-										logrus.Infof("Push to queue [%s] Address [%v]", q, cfg.Mqueue.Address)
-									} else {
-										qDelte := strings.Replace(msg, "Delete=", "", 1)
-										err = redisDb.DeleteQueue(ctx, strings.TrimSuffix(qDelte, "\n"))
-										if err != nil {
-											logrus.Error(err)
+					select{
+					case worker <- true:
+						return
+					default:
+						if conn, err := serv.Listener.Accept(); err == nil {
+							redisDb.Connection(cfg)
+							go func() {
+								defer redisDb.Conn.Close()
+								buf := bufio.NewReader(conn)
+								for {
+									msg, err := buf.ReadString('\n')
+									if err == nil {
+										if !strings.Contains(msg, "Delete=") {
+											q := msg[:strings.IndexByte(msg, '=')]
+											dMsg := strings.Replace(msg, fmt.Sprintf("%s=", q), "", 1)
+											redisDb.PushDB(ctx, q, dMsg)
+											logrus.Infof("Push to queue [%s] Address [%v]", q, cfg.Mqueue.Address)
+										} else {
+											qDelte := strings.Replace(msg, "Delete=", "", 1)
+											err = redisDb.DeleteQueue(ctx, strings.TrimSuffix(qDelte, "\n"))
+											if err != nil {
+												logrus.Error(err)
+											}
+											logrus.Infof("Success Delete Queue %v", qDelte)
 										}
-										logrus.Infof("Success Delete Queue %v", qDelte)
 									}
 								}
-							}
-						}()
+							}()
+						}
 					}
 				}
 			}
